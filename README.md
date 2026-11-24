@@ -25,7 +25,7 @@ Orijinal macOS betigi korunmus, Linux platformu icin bagimsiz ve tum dagitimlard
 
 1. Depoyu klonlayin veya dosyalari indirin:
 ```bash
-git clone <repo-url>
+git clone https://github.com/Chanbadar/bozok-login.git
 cd fortinet-autologin
 ```
 
