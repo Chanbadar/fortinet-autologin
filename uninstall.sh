@@ -1,22 +1,52 @@
 #!/bin/bash
 set -e
 
-if [ "$EUID" -ne 0 ]; then
-    echo "Hata: Bu script root yetkisi ile calistirilmalidir."
-    echo "Kullanim: sudo ./uninstall.sh"
-    exit 1
-fi
+# ==============================================================================
+# Fortinet Captive Portal Auto-Login Uninstaller (Cross-Platform)
+# ==============================================================================
 
-echo "Fortinet Autologin servisi kaldiriliyor..."
+OS_TYPE="$(uname -s)"
+echo "Fortinet Autologin Kaldirma Islemi Baslatiliyor ($OS_TYPE)..."
 
-systemctl stop fortinet-autologin.timer 2>/dev/null || true
-systemctl disable fortinet-autologin.timer 2>/dev/null || true
+case "$OS_TYPE" in
+    Darwin)
+        PLIST_FILE="$HOME/Library/LaunchAgents/com.user.fortinet-autologin.plist"
+        TARGET_BIN="$HOME/.local/bin/fortinet-autologin"
 
-rm -f /etc/systemd/system/fortinet-autologin.service
-rm -f /etc/systemd/system/fortinet-autologin.timer
-systemctl daemon-reload
+        if [ -f "$PLIST_FILE" ]; then
+            launchctl unload "$PLIST_FILE" 2>/dev/null || true
+            rm -f "$PLIST_FILE"
+            echo "launchd servisi durduruldu ve kaldirildi."
+        fi
 
-rm -f /usr/local/bin/fortinet-autologin
-rm -rf /etc/fortinet-autologin
+        rm -f "$TARGET_BIN"
+        echo "Calistirilabilir dosya silindi: $TARGET_BIN"
+        echo "Not: Guvenlik nedeniyle macOS Keychain kaydi silinmemistir. Isterseniz 'security delete-generic-password -s fortinet-portal' ile silebilirsiniz."
+        echo "Kaldirma islemi tamamlandi."
+        ;;
 
-echo "Tum bilesenler ve servisler basariyla kaldirildi."
+    Linux)
+        if [ "$EUID" -ne 0 ]; then
+            echo "Hata: Kaldirma islemi root (sudo) yetkisi gerektirir."
+            echo "Kullanim: sudo ./uninstall.sh"
+            exit 1
+        fi
+
+        systemctl stop fortinet-autologin.timer 2>/dev/null || true
+        systemctl disable fortinet-autologin.timer 2>/dev/null || true
+
+        rm -f /etc/systemd/system/fortinet-autologin.service
+        rm -f /etc/systemd/system/fortinet-autologin.timer
+        systemctl daemon-reload
+
+        rm -f /usr/local/bin/fortinet-autologin
+        rm -rf /etc/fortinet-autologin
+
+        echo "Tum systemd servisleri, calistirilabilir dosya ve yapilandirmalar kaldirildi."
+        ;;
+
+    *)
+        echo "Desteklenmeyen isletim sistemi: $OS_TYPE"
+        exit 1
+        ;;
+esac

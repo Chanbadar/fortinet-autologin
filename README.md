@@ -1,90 +1,213 @@
-# Fortinet Captive Portal Auto-Login (Linux)
+# Fortinet Captive Portal Auto-Login
 
-Bozok Universitesi ve benzeri FortiGate Captive Portal (Web Authentication) aglarinda baglantiyi surekli acik tutan ve kesildiginde otomatik olarak yeniden giris yapan otomasyon aracidir.
+A lightweight, automated captive portal login utility designed for FortiGate authentication environments (such as Bozok University and similar academic/enterprise networks). Compatible with both **Linux** and **macOS**.
 
-Orijinal macOS betigi korunmus, Linux platformu icin bagimsiz ve tum dagitimlarda calisacak sekilde optimize edilmistir.
+---
 
-## Calisma Mantigi
+## Türkçe Dokümantasyon
 
-1. Sistem arka planinda (systemd timer) her dakika kontrol gerceklestirilir.
-2. `http://captive.apple.com/hotspot-detect.html` adresine hafif bir HTTP sorgusu atilir.
-3. Eger internet baglantisi zaten aktifse betik herhangi bir islem yapmadan aninda sonlanir (RAM ve islemci tuketimi 0 olur).
-4. Eger ag tarafindan kesilme (timeout) olmussa veya giris sayfasi tespit edilmisse:
-   - Portal yonlendirme adresi ve oturum kodu (magic key) otomatik ayiklanir.
-   - Tanımlanan kullanici bilgileri ile HTTPS POST istegi yapilarak oturum acilir.
-   - Giris yapildigi teyit edilir ve log kaydi olusturulur.
+### Genel Bakış
 
-## Gereksinimler
+Bu araç, FortiGate Captive Portal (Web Kimlik Doğrulama) kullanan ağlarda oturumun zaman aşımına uğraması veya ağ bağlantısının kesilmesi durumunda otomatik olarak sisteme yeniden giriş yapar.
 
-- Herhangi bir Linux dagitimi (Arch Linux, Ubuntu, Debian, Fedora, CentOS vb.)
-- `bash` kabugu
-- `curl` araci
-- `systemd` (otomatik zamanlayici servisi icin)
+Arka planda sürekli bellek tüketen bir servis çalıştırmak yerine, işletim sisteminin yerel zamanlayıcı mekanizmalarını (Linux'ta `systemd timer`, macOS'ta `launchd`) kullanır. Her dakika hafif bir ağ kontrolü yapar; internet erişimi mevcutsa anında sonlanır ve hiçbir bellek ya da işlemci yükü oluşturmaz. Bağlantı kesilmişse portala otomatik POST isteği göndererek oturumu yeniden açar.
 
-## Kurulum
+### Temel Özellikler
 
-1. Depoyu klonlayin veya dosyalari indirin:
+- **Çapraz Platform Desteği:** Linux ve macOS üzerinde yerel servis mimarisiyle çalışır.
+- **Sıfır Bellek Tüketimi:** Arka planda kalıcı süreç tutmaz; yalnızca kontrol anında tetiklenir ve işi bitince kapanır.
+- **Güvenli Kimlik Yönetimi:**
+  - Linux üzerinde yalnızca `root` kullanıcısının okuyabileceği (`chmod 600`) yapılandırma dosyası kullanır.
+  - macOS üzerinde şifreleri doğrudan işletim sisteminin şifreli Anahtar Zinciri'nde (`Keychain`) saklar.
+- **Akıllı Algılama:** FortiGate yönlendirmesindeki dinamik oturum belirtecini (`magic` parametresi) ve yönlendirme adreslerini otomatik ayrıştırır.
+
+### Desteklenen Platformlar ve Gereksinimler
+
+- **Linux:** `systemd` kullanan tüm dağıtımlar (Arch Linux, Ubuntu, Debian, Fedora, CentOS vb.), `bash`, `curl`.
+- **macOS:** OS X / macOS 10.10 ve üzeri sürümler, `launchd`, `security`, `curl`.
+
+### Kurulum
+
+Depoyu sisteminize klonlayın ve kurulum betiğini çalıştırın:
+
 ```bash
-git clone https://github.com/Chanbadar/bozok-login.git
+git clone <repo-url>
 cd fortinet-autologin
+chmod +x install.sh uninstall.sh
 ```
 
-2. Kurulum betigini calistirin:
+#### Linux Kurulumu:
+Linux üzerinde kurulum systemd servislerini yapılandırdığı için yönetici yetkisi gerektirir:
 ```bash
-chmod +x install.sh
 sudo ./install.sh
 ```
+Kurulum sırasında portal kullanıcı adı ve şifreniz istenecektir. Bilgiler `/etc/fortinet-autologin/config.env` dosyasına güvenli erişim izinleriyle kaydedilecektir.
 
-Kurulum sirasinda sizden kullanici adi ve sifreniz istenecektir. Bu bilgiler yalnizca root kullanicisinin okuyabilecegi `/etc/fortinet-autologin/config.env` dosyasina kaydedilir (izin: 600).
-
-Kurulum tamamlandiginda `systemd timer` otomatik olarak baslatilir ve her dakika calisacak sekilde ayarlanir.
-
-## Manuel Calistirma ve Test
-
-Servis kurulmadan da betik dogrudan test edilebilir:
-
-Test modunda calistirmak icin:
+#### macOS Kurulumu:
+macOS üzerinde root yetkisi gerekmez, doğrudan kullanıcı seviyesinde çalıştırılır:
 ```bash
-chmod +x fortinet-autologin-linux.sh
-./fortinet-autologin-linux.sh --dry-run
+./install.sh
 ```
+Kurulum sırasında istenen kimlik bilgileri sisteminizin yerel Keychain deposuna eklenecektir.
 
-Ortam degiskeni belirterek calistirmak icin:
+### Manuel Test ve Betik Parametreleri
+
+Sistemi arka plan servisi kurmadan doğrudan terminalden test edebilirsiniz:
+
+- **Simülasyon Modu (`--dry-run`):**
+  Ağ durumunu kontrol eder, FortiGate portalını ve oturum parametrelerini algılar; ancak sisteme giriş isteği göndermeden durur.
+  ```bash
+  # Linux için:
+  ./fortinet-autologin-linux.sh --dry-run
+
+  # macOS için:
+  ./fortinet-autologin.sh --dry-run
+  ```
+
+- **Ortam Değişkeni ile Çalıştırma:**
+  ```bash
+  FORTINET_USER="kullanici_adi" FORTINET_PASS="sifre" ./fortinet-autologin-linux.sh
+  ```
+
+### Yönetim ve Log İnceleme
+
+#### Linux (systemd):
+- Zamanlayıcı durumunu kontrol etme:
+  ```bash
+  systemctl status fortinet-autologin.timer
+  ```
+- Canlı servis loglarını izleme:
+  ```bash
+  journalctl -u fortinet-autologin.service -f
+  ```
+- Log dosyasını okuma:
+  ```bash
+  cat /var/log/fortinet-autologin.log
+  ```
+
+#### macOS (launchd):
+- Servis durumunu listeleme:
+  ```bash
+  launchctl list | grep fortinet-autologin
+  ```
+- Log dosyasını izleme:
+  ```bash
+  tail -f ~/Library/Logs/fortinet-autologin.log
+  ```
+
+### Kaldırma
+
+Aracı sistemden tüm servisleri, zamanlayıcıları ve dosyalarıyla birlikte kaldırmak için:
+
 ```bash
-FORTINET_USER="kullanici_adi" FORTINET_PASS="sifre" ./fortinet-autologin-linux.sh
-```
-
-## Yonetim Komutlari
-
-Zamanlayicinin durumunu kontrol etme:
-```bash
-systemctl status fortinet-autologin.timer
-```
-
-Servisin calisma gecmisini ve loglarini izleme:
-```bash
-journalctl -u fortinet-autologin.service -f
-```
-
-veya dosya logunu inceleme:
-```bash
-cat /var/log/fortinet-autologin.log
-```
-
-Zamanlayiciyi gecici olarak durdurma:
-```bash
-sudo systemctl stop fortinet-autologin.timer
-```
-
-Zamanlayiciyi yeniden baslatma:
-```bash
-sudo systemctl start fortinet-autologin.timer
-```
-
-## Kaldirma
-
-Sistemdeki tum servisleri, zamanlayicilari ve yapilandirma dosyalarini tamamen temizlemek icin:
-```bash
-chmod +x uninstall.sh
+# Linux:
 sudo ./uninstall.sh
+
+# macOS:
+./uninstall.sh
+```
+
+---
+
+## English Documentation
+
+### Overview
+
+This utility automates the re-authentication process for FortiGate Captive Portal environments whenever a session expires or network connectivity drops.
+
+Rather than running a continuous background daemon that consumes memory, it leverages the operating system's native scheduling framework (`systemd timer` on Linux, `launchd` on macOS). It performs a lightweight connectivity probe once every minute; if access is active, it exits immediately with zero residual memory footprint. If redirected to the captive portal, it extracts authentication tokens and executes the login request automatically.
+
+### Key Features
+
+- **Cross-Platform:** Native system integration on both Linux and macOS.
+- **Resource Efficient:** Ephemeral execution model ensures no background processes remain resident in memory.
+- **Secure Credential Storage:**
+  - Linux: Credentials are saved under `/etc/fortinet-autologin/config.env` with restricted permissions (`chmod 600`).
+  - macOS: Credentials are encrypted and stored via the native macOS Keychain system.
+- **Dynamic Token Extraction:** Automatically parses portal redirect URLs, magic strings, and CSRF parameters.
+
+### Prerequisites
+
+- **Linux:** Any modern Linux distribution utilizing `systemd`, `bash`, `curl`.
+- **macOS:** OS X / macOS 10.10+, `launchd`, `security`, `curl`.
+
+### Installation
+
+Clone the repository and prepare the installation scripts:
+
+```bash
+git clone <repo-url>
+cd fortinet-autologin
+chmod +x install.sh uninstall.sh
+```
+
+#### Linux Installation:
+Requires administrative privileges to configure systemd units:
+```bash
+sudo ./install.sh
+```
+The installer prompts for portal credentials and stores them securely.
+
+#### macOS Installation:
+Runs under user space without needing root privileges:
+```bash
+./install.sh
+```
+The installer prompts for credentials and writes them to the macOS Keychain.
+
+### Manual Execution and Script Flags
+
+The scripts can be invoked manually for diagnostic purposes:
+
+- **Simulation Mode (`--dry-run`):**
+  Performs probe requests and detects the FortiGate authentication endpoint without posting credentials.
+  ```bash
+  # Linux:
+  ./fortinet-autologin-linux.sh --dry-run
+
+  # macOS:
+  ./fortinet-autologin.sh --dry-run
+  ```
+
+- **Execution via Environment Variables:**
+  ```bash
+  FORTINET_USER="username" FORTINET_PASS="password" ./fortinet-autologin-linux.sh
+  ```
+
+### Service Management and Logs
+
+#### Linux (systemd):
+- Check timer status:
+  ```bash
+  systemctl status fortinet-autologin.timer
+  ```
+- Tail journal logs:
+  ```bash
+  journalctl -u fortinet-autologin.service -f
+  ```
+- View flat file log:
+  ```bash
+  cat /var/log/fortinet-autologin.log
+  ```
+
+#### macOS (launchd):
+- Inspect loaded job:
+  ```bash
+  launchctl list | grep fortinet-autologin
+  ```
+- Stream logs:
+  ```bash
+  tail -f ~/Library/Logs/fortinet-autologin.log
+  ```
+
+### Uninstallation
+
+To remove all installed services, timers, and configuration files:
+
+```bash
+# Linux:
+sudo ./uninstall.sh
+
+# macOS:
+./uninstall.sh
 ```
