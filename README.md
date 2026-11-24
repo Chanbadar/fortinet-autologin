@@ -136,7 +136,7 @@ Rather than running a continuous background daemon that consumes memory, it leve
 Clone the repository and prepare the installation scripts:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Chanbadar/fortinet-autologin.git
 cd fortinet-autologin
 chmod +x install.sh uninstall.sh
 ```
