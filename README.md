@@ -31,7 +31,7 @@ Arka planda sürekli bellek tüketen bir servis çalıştırmak yerine, işletim
 Depoyu sisteminize klonlayın ve kurulum betiğini çalıştırın:
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/Chanbadar/fortinet-autologin.git
 cd fortinet-autologin
 chmod +x install.sh uninstall.sh
 ```
