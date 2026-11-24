@@ -45,6 +45,16 @@ case "$OS_TYPE" in
         echo "Tum systemd servisleri, calistirilabilir dosya ve yapilandirmalar kaldirildi."
         ;;
 
+    CYGWIN*|MINGW*|MSYS*)
+        echo "Windows / MINGW ortami algilandi."
+        if command -v powershell.exe >/dev/null 2>&1; then
+            powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(dirname "$0")/uninstall.ps1"
+        else
+            echo "Lutfen PowerShell uzerinden su komutu calistiriniz:"
+            echo "powershell -ExecutionPolicy Bypass -File uninstall.ps1"
+        fi
+        ;;
+
     *)
         echo "Desteklenmeyen isletim sistemi: $OS_TYPE"
         exit 1

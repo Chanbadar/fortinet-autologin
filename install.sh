@@ -2,7 +2,7 @@
 set -e
 
 # ==============================================================================
-# Fortinet Captive Portal Auto-Login Installer (Cross-Platform: Linux & macOS)
+# Fortinet Captive Portal Auto-Login Installer (Cross-Platform: Linux, macOS, Windows)
 # ==============================================================================
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -160,6 +160,20 @@ EOF
 }
 
 # ------------------------------------------------------------------------------
+# 3. Windows Kurulum Yonlendirmesi (Git Bash / MSYS2 / WSL)
+# ------------------------------------------------------------------------------
+install_windows() {
+    echo "Windows / MINGW ortami algilandi."
+    if command -v powershell.exe >/dev/null 2>&1; then
+        echo "PowerShell uzerinden Windows kurulum betigi (install.ps1) calistiriliyor..."
+        powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$SCRIPT_DIR/install.ps1"
+    else
+        echo "Lutfen PowerShell veya CMD uzerinden su komutu calistiriniz:"
+        echo "powershell -ExecutionPolicy Bypass -File install.ps1"
+    fi
+}
+
+# ------------------------------------------------------------------------------
 # Ana Yonlendirici
 # ------------------------------------------------------------------------------
 case "$OS_TYPE" in
@@ -168,6 +182,9 @@ case "$OS_TYPE" in
         ;;
     Linux)
         install_linux
+        ;;
+    CYGWIN*|MINGW*|MSYS*)
+        install_windows
         ;;
     *)
         echo "Hata: Desteklenmeyen isletim sistemi: $OS_TYPE"
